@@ -9,6 +9,7 @@ fn main() -> Result<()> {
 
     let module = Module::new(&engine, &mut &wasm[..])?;
 
+
     // All Wasm objects operate within the context of a `Store`.
     // Each `Store` has a type parameter to store host-specific data,
     // which in this case we are using `42` for.
@@ -29,16 +30,15 @@ fn main() -> Result<()> {
 
     // Instantiate
     let instance = linker.instantiate(&mut store, &module)?.start(&mut store)?;
-
+     
     // Export WASM ccall
     let square = instance
         .get_export(&store, "f2m_square")
         .and_then(Extern::into_func)
         .ok_or_else(|| anyhow!("could not find function \"f2m_square\""))?
-        .typed::<(), ()>(&mut store)?;
-
+        .typed::<(i32, i32), ()>(&mut store)?;
     // And finally we can call the wasm!
-    square.call(&mut store, ())?;
 
+    square.call(&mut store, (5, 4))?;
     Ok(())
 }
