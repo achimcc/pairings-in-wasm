@@ -68,6 +68,6 @@ fn main() -> Result<()> {
 
 fn shift(data: &[u8], pos: usize) -> &[u8] {
     let start: usize = 92000;
-    let n8q: usize = 96;
-    &data[(start + pos * n8q * 5)..92000 + ((start + 1) * 5*  n8q - 1)]
+    let n8q: usize = 48;
+    &data[(start + pos * n8q)..((start + pos+ 1) * n8q - 1)]
 }
