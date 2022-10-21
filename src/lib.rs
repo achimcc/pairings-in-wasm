@@ -214,7 +214,7 @@ fn from_le(vec: Vec<u8>) -> BigUint {
     BigUint::from_bytes_le(&vec)
 }
 
-pub fn pairing(a: &[u8], b: &[u8]) -> Vec<u8> {
+pub fn wasm_pairing(a: &[u8], b: &[u8]) -> Vec<u8> {
     let mut wasm = WasmInstance::from_file("bls12381.wasm").expect("");
     let p_a: i32 = 125000;
     let p_b: i32 = 126000;
