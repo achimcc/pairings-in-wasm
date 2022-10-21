@@ -12,14 +12,14 @@ struct WasmInstance {
 }
 
 impl WasmInstance {
-    fn from_file(path: &str) -> Self {
+    fn from_file(path: &str) -> Result<Self, anyhow::Error> {
         // First step is to create the Wasm execution engine with some config.
         // In this example we are using the default configuration.
         let engine = Engine::default();
         let wasm = std::fs::read(path)
             .map_err(|_| anyhow!("failed to read Wasm file"))
             .unwrap();
-        let module = Module::new(&engine, &mut &wasm[..]).unwrap();
+        let module = Module::new(&engine, &mut &wasm[..])?;
 
         // All Wasm objects operate within the context of a `Store`.
         // Each `Store` has a type parameter to store host-specific data,
@@ -31,18 +31,15 @@ impl WasmInstance {
         // and exports we require a `Linker`.
         let mut linker = <Linker<HostState>>::new();
 
-        let memory = Memory::new(&mut store, MemoryType::new(30, None)).unwrap();
-        linker.define("env", "memory", memory).unwrap();
-        let instance = linker
-            .instantiate(&mut store, &module)
-            .unwrap()
-            .start(&mut store)
-            .unwrap();
-        Self {
+        let memory = Memory::new(&mut store, MemoryType::new(30, None))
+            .map_err(|_| anyhow!("failed to define WASM memory"))?;
+        linker.define("env", "memory", memory)?;
+        let instance = linker.instantiate(&mut store, &module)?.start(&mut store)?;
+        Ok(Self {
             memory,
             instance,
             store,
-        }
+        })
     }
 
     fn from_montgomery(&mut self, from: i32, to: i32) {
@@ -178,7 +175,7 @@ impl WasmInstance {
     }
 }
 fn main() -> Result<()> {
-    let mut wasm = WasmInstance::from_file("bls12381.wasm");
+    let mut wasm = WasmInstance::from_file("bls12381.wasm")?;
     let p_result: i32 = 127000;
     wasm.compute_pairing(P_G1, P_G2, p_result);
     let result = wasm.get_f12(p_result, false);
@@ -206,7 +203,8 @@ mod tests {
     use super::*;
     #[test]
     fn paring_is_unitary() {
-        let mut wasm = WasmInstance::from_file("bls12381.wasm");
+        let mut wasm =
+            WasmInstance::from_file("bls12381.wasm").expect("Failed to instantiate WASM");
 
         // Define memory location to which we write the computation results
         let p_n_g1: i32 = 125000;
