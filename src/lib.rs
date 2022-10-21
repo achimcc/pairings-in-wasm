@@ -157,6 +157,19 @@ impl WasmInstance {
         ]
     }
 
+    fn get_f12_u8(&mut self, p_f12: i32, in_montgomery: bool) -> Vec<u8> {
+        if !in_montgomery {
+            self.from_montgomery(p_f12, p_f12);
+        }
+        let data: &[u8] = self.memory.data(&self.store);
+        let result = data[(p_f12 as usize)..(p_f12 as usize + 12 * 48)].to_vec();
+        if !in_montgomery {
+            self.to_montgomery(p_f12, p_f12)
+        };
+        let p_f12 = p_f12 as usize;
+        result
+    }
+
     fn g1(&self) -> [Vec<u8>; 3] {
         let data: Vec<u8> = self.memory.data(&self.store).to_vec();
         [
@@ -175,6 +188,17 @@ impl WasmInstance {
             [[shift(p_g2, &data, 4), shift(p_g2, &data, 5)]],
         ]
     }
+
+    fn write_to_memory(&mut self, p_location: i32, buffer: &[u8]) {
+        self.memory
+            .write(&mut self.store, p_location as usize, buffer);
+    }
+
+    fn read_from_memory(&self, p_location: i32, range: usize) -> &[u8] {
+        let data: &[u8] = self.memory.data(&self.store);
+        let p_location = p_location as usize;
+        &data[p_location..p_location + range]
+    }
 }
 
 fn shift(start: usize, data: &[u8], pos: usize) -> Vec<u8> {
@@ -192,9 +216,13 @@ fn from_le(vec: Vec<u8>) -> BigUint {
 
 pub fn pairing(a: &[u8], b: &[u8]) -> Vec<u8> {
     let mut wasm = WasmInstance::from_file("bls12381.wasm").expect("");
+    let p_a: i32 = 125000;
+    let p_b: i32 = 126000;
     let p_result: i32 = 127000;
-    wasm.compute_pairing(P_G1, P_G2, p_result);
-    Vec::new()
+    wasm.write_to_memory(p_a, a);
+    wasm.write_to_memory(p_a, b);
+    wasm.compute_pairing(p_a, p_b, p_result);
+    wasm.get_f12_u8(p_result, true)
 }
 
 #[cfg(test)]
@@ -202,6 +230,24 @@ pub fn pairing(a: &[u8], b: &[u8]) -> Vec<u8> {
 mod tests {
     use super::*;
     use test::Bencher;
+
+    #[test]
+    fn write_to_memory_works() {
+        let mut wasm = WasmInstance::from_file("bls12381.wasm").expect("");
+        let p_a_destination: i32 = 127000;
+        let p_b_destination: i32 = 128000;
+        let p_res1: i32 = 129000;
+        let p_res2: i32 = 130000;
+        let a = wasm.read_from_memory(P_G1, 3 * 48).to_vec();
+        let b = wasm.read_from_memory(P_G2, 6 * 48).to_vec();
+        wasm.write_to_memory(p_a_destination, &a);
+        wasm.write_to_memory(p_b_destination, &b);
+        wasm.compute_pairing(p_a_destination, p_b_destination, p_res1);
+        wasm.compute_pairing(P_G1, P_G2, p_res2);
+        let res1 = wasm.get_f12(p_res1, false);
+        let res2 = wasm.get_f12(p_res2, false);
+        assert_eq!(res1, res2);
+    }
 
     #[test]
     fn paring_works() {
