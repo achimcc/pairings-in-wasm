@@ -1,10 +1,12 @@
+#![feature(test)]
+extern crate test;
+
 use anyhow::{anyhow, Result};
 use num_bigint::BigUint;
 use wasmi::{Engine, Extern, Instance, Linker, Memory, MemoryType, Module, Store};
 
 const P_G1: i32 = 42104;
 const P_G2: i32 = 42392;
-
 struct WasmInstance {
     memory: Memory,
     instance: Instance,
@@ -188,20 +190,29 @@ fn from_le(vec: Vec<u8>) -> BigUint {
     BigUint::from_bytes_le(&vec)
 }
 
-fn main() -> Result<()> {
-    let mut wasm = WasmInstance::from_file("bls12381.wasm")?;
+pub fn pairing(a: &[u8], b: &[u8]) -> Vec<u8> {
+    let mut wasm = WasmInstance::from_file("bls12381.wasm").expect("");
     let p_result: i32 = 127000;
     wasm.compute_pairing(P_G1, P_G2, p_result);
-    let result = wasm.get_f12(p_result, false);
-    println!("result: {:?}", result);
-    let result_montgomery = wasm.get_f12(p_result, true);
-    println!("result in montgomery: {:?}", result_montgomery);
-    Ok(())
+    Vec::new()
 }
 
 #[cfg(test)]
+
 mod tests {
     use super::*;
+    use test::Bencher;
+
+    #[test]
+    fn paring_works() {
+        let mut wasm = WasmInstance::from_file("bls12381.wasm").expect("");
+        let p_result: i32 = 127000;
+        wasm.compute_pairing(P_G1, P_G2, p_result);
+        let result = wasm.get_f12(p_result, false);
+        println!("result: {:?}", result);
+        let result_montgomery = wasm.get_f12(p_result, true);
+        println!("result in montgomery: {:?}", result_montgomery);
+    }
     #[test]
     fn paring_is_unitary() {
         let mut wasm =
@@ -226,5 +237,30 @@ mod tests {
         let r = wasm.get_f12(p_r, false);
         assert_eq!(p, q);
         assert_eq!(q, r);
+    }
+
+    #[bench]
+    fn bench_pairing(b: &mut Bencher) {
+        let p_result: i32 = 129000;
+        let mut wasm =
+            WasmInstance::from_file("bls12381.wasm").expect("Failed to instantiate WASM");
+        b.iter(|| wasm.compute_pairing(P_G1, P_G2, p_result));
+    }
+
+    #[bench]
+    fn bench_instantiation(b: &mut Bencher) {
+        b.iter(|| {
+            let _ = WasmInstance::from_file("bls12381.wasm").expect("Failed to instantiate WASM");
+        });
+    }
+
+    #[bench]
+    fn bench_instantiate_and_pair(b: &mut Bencher) {
+        let p_result: i32 = 129000;
+        b.iter(|| {
+            let mut wasm =
+                WasmInstance::from_file("bls12381.wasm").expect("Failed to instantiate WASM");
+            wasm.compute_pairing(P_G1, P_G2, p_result);
+        });
     }
 }
