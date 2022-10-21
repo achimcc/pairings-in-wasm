@@ -1,11 +1,10 @@
-use std::path::Path;
-
 use anyhow::{anyhow, Result};
 use num_bigint::BigUint;
-use wasmi::{AsContextMut, Engine, Extern, Instance, Linker, Memory, MemoryType, Module, Store};
+use wasmi::{Engine, Extern, Instance, Linker, Memory, MemoryType, Module, Store};
 
 const P_G1: i32 = 42104;
 const P_G2: i32 = 42392;
+
 struct WasmInstance {
     memory: Memory,
     instance: Instance,
@@ -122,7 +121,7 @@ impl WasmInstance {
         if !in_montgomery {
             self.from_montgomery(p_f12, p_f12);
         }
-        let data: Vec<u8> = self.memory.data(&self.store).into_iter().copied().collect();
+        let data: Vec<u8> = self.memory.data(&self.store).to_vec();
         if !in_montgomery {
             self.to_montgomery(p_f12, p_f12)
         };
@@ -160,7 +159,7 @@ impl WasmInstance {
     }
 
     fn g1(&self) -> [Vec<u8>; 3] {
-        let data: Vec<u8> = self.memory.data(&self.store).into_iter().copied().collect();
+        let data: Vec<u8> = self.memory.data(&self.store).to_vec();
         [
             shift(P_G1 as usize, &data, 0),
             shift(P_G1 as usize, &data, 1),
@@ -170,7 +169,7 @@ impl WasmInstance {
 
     fn g2(&self) -> [[[Vec<u8>; 2]; 1]; 3] {
         let p_g2 = P_G2 as usize;
-        let data: Vec<u8> = self.memory.data(&self.store).into_iter().copied().collect();
+        let data: Vec<u8> = self.memory.data(&self.store).to_vec();
         [
             [[shift(p_g2, &data, 0), shift(p_g2, &data, 1)]],
             [[shift(p_g2, &data, 2), shift(p_g2, &data, 3)]],
@@ -180,20 +179,18 @@ impl WasmInstance {
 }
 fn main() -> Result<()> {
     let mut wasm = WasmInstance::from_file("bls12381.wasm");
-    let p_g1: usize = 42104;
-    let p_g2: usize = 42392;
-    let p_res: usize = 127000;
-    wasm.compute_pairing(p_g1 as i32, p_g2 as i32, p_res as i32);
-    let result = wasm.get_f12(p_res as i32, false);
+    let p_result: i32 = 127000;
+    wasm.compute_pairing(P_G1, P_G2, p_result);
+    let result = wasm.get_f12(p_result, false);
     println!("result: {:?}", result);
-    let result_montgomery = wasm.get_f12(p_res as i32, true);
+    let result_montgomery = wasm.get_f12(p_result, true);
     println!("result in montgomery: {:?}", result_montgomery);
     Ok(())
 }
 
-fn shift(start: usize, data: &Vec<u8>, pos: usize) -> Vec<u8> {
+fn shift(start: usize, data: &[u8], pos: usize) -> Vec<u8> {
     let n8q: usize = 48;
-    data.clone()[(start + pos * n8q)..(start + (pos + 1) * n8q)].to_vec()
+    data[(start + pos * n8q)..(start + (pos + 1) * n8q)].to_vec()
 }
 
 fn to_le(str: &str) -> Vec<u8> {
