@@ -174,16 +174,6 @@ impl WasmInstance {
         ]
     }
 }
-fn main() -> Result<()> {
-    let mut wasm = WasmInstance::from_file("bls12381.wasm")?;
-    let p_result: i32 = 127000;
-    wasm.compute_pairing(P_G1, P_G2, p_result);
-    let result = wasm.get_f12(p_result, false);
-    println!("result: {:?}", result);
-    let result_montgomery = wasm.get_f12(p_result, true);
-    println!("result in montgomery: {:?}", result_montgomery);
-    Ok(())
-}
 
 fn shift(start: usize, data: &[u8], pos: usize) -> Vec<u8> {
     let n8q: usize = 48;
@@ -196,6 +186,17 @@ fn to_le(str: &str) -> Vec<u8> {
 
 fn from_le(vec: Vec<u8>) -> BigUint {
     BigUint::from_bytes_le(&vec)
+}
+
+fn main() -> Result<()> {
+    let mut wasm = WasmInstance::from_file("bls12381.wasm")?;
+    let p_result: i32 = 127000;
+    wasm.compute_pairing(P_G1, P_G2, p_result);
+    let result = wasm.get_f12(p_result, false);
+    println!("result: {:?}", result);
+    let result_montgomery = wasm.get_f12(p_result, true);
+    println!("result in montgomery: {:?}", result_montgomery);
+    Ok(())
 }
 
 #[cfg(test)]
