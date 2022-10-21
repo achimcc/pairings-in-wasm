@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 
 wasmi = { version = "0.18.1" }
-anyhow = { version = "1.0.65" }
+anyhow = { version = "^1.0.0" }
 wat = "1"
 rand = "0.8"
 num-bigint = { version = "0.4", features = ["rand"] }
+getrandom = { version = "0.2", features = ["js"] }
